@@ -1,0 +1,98 @@
+Practical Machine Learning Project
+======================================================
+
+***Introduction***
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.
+
+In this project, data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants will be used. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har. The goal is to predict the manner in which they did the exercise.
+
+***Set directory***
+
+```{r cache=TRUE}
+setwd("C:/Data_Science/Online_Courses/Data_Science_Specialization/Practical_Machine_Learning/project")
+```
+
+***Load to memory the available datasets***
+
+```{r cache=TRUE}
+trainingOriginal <- read.csv("C:/Data_Science/Online_Courses/Data_Science_Specialization/Practical_Machine_Learning/project/dataset/pml-training.csv", header = TRUE, na.strings = c("", "NA"))
+dim(trainingOriginal)
+testingOriginal <- read.csv("C:/Data_Science/Online_Courses/Data_Science_Specialization/Practical_Machine_Learning/project/dataset/pml-testing.csv", header = TRUE, na.strings = c("", "NA"))
+```
+
+
+***Preprocessing***
+
+```{r cache=TRUE}
+#Removing the Columns with NAs
+trainingRemovedNA = trainingOriginal[, colSums(is.na(trainingOriginal)) == 0]
+dim(trainingRemovedNA)
+
+# Remove irrelevant columns
+trainingIrrelevant = trainingRemovedNA[, -c(1:7)]
+dim(trainingIrrelevant)
+
+#Reduce pair-wise correlation
+M = abs(cor(trainingIrrelevant[, -53]))
+library(caret)
+removeCorColumns = findCorrelation(M, cutoff = .90, verbose = FALSE)
+trainingCor = trainingIrrelevant[, -c(removeCorColumns)]
+dim(trainingCor)
+
+```
+
+
+***Split training set***
+
+```{r cache=TRUE}
+
+inTrain = createDataPartition(y = trainingIrrelevant$classe, p = 0.7, list = FALSE)
+training = trainingIrrelevant[inTrain, ]
+testing = trainingIrrelevant[-inTrain, ]
+```
+
+
+***Learning procedure with Random Forest***
+
+```{r cache=TRUE}
+set.seed(21)
+library(randomForest)
+modFit = randomForest(classe ~., data=training,  importance=TRUE)
+modFit
+```
+
+***Visualization of training error and Variable Importance***
+```{r cache=TRUE}
+#Plotting the overall error of the model
+layout(matrix(c(1,2),nrow=1),
+       width=c(4,1)) 
+par(mar=c(5,4,4,0)) #No margin on the right side
+plot(modFit, log="y")
+par(mar=c(5,0,4,2)) #No margin on the left side
+plot(c(0,1),type="n", axes=F, xlab="", ylab="")
+legend("top", colnames(modFit$err.rate),col=1:6,cex=0.8,fill=1:6)
+
+
+#Plotting the variable importance
+varImpPlot(modFit)
+```
+
+***Calculate out of sample accuracy***
+
+```{r cache=TRUE}
+pred = predict(modFit, testing)
+testing$predRight = pred == testing$classe
+predM = table(pred, testing$classe)
+predM
+#Out of sample Accuracy
+sum(diag(predM))/sum(sum(predM))
+```
+
+***Prediction in the original test set***
+
+
+```{r cache=TRUE}
+answers = predict(modFit, testingOriginal)
+answers
+```
